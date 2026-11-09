@@ -37,8 +37,9 @@ def _run_benchmark(
         cmd.extend(extra_args)
         env = os.environ.copy()
         # Avoid triggering CUDA detection / source builds in lightweight CI.
-        # These must be set explicitly here: pip's build isolation does not
-        # import repository-level sitecustomize.py, so we cannot rely on it.
+        # The repository-level sitecustomize.py also sets these defaults, but
+        # we set them explicitly here so subprocesses are robust even when
+        # sitecustomize is not imported (e.g. isolated interpreters).
         env.setdefault("VLLM_TARGET_DEVICE", "cpu")
         # setup.py asserts CUDA_HOME is set when probing nvcc; provide a
         # harmless placeholder so CPU-only environments do not fail during

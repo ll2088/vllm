@@ -185,6 +185,19 @@ def test_run_baseline_aggregates_fields(tmp_path, monkeypatch):
     assert data == values
 
 
+def test_sitecustomize_sets_build_env_defaults():
+    import importlib.util
+
+    repo_root = os.path.dirname(BENCHMARKS_DIR)
+    spec = importlib.util.spec_from_file_location(
+        "sitecustomize", os.path.join(repo_root, "sitecustomize.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert os.environ.get("CUDA_HOME")
+    assert os.environ.get("VLLM_TARGET_DEVICE") == "cpu"
+
+
 def test_run_baseline_no_partial_file_on_failure(tmp_path, monkeypatch):
     import importlib.util
 
