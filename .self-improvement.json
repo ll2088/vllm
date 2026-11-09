@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "generatedBy": "autojump",
+  "setup": "pip install -e .",
+  "dimensions": [
+    {
+      "key": "effect",
+      "label": "效果",
+      "command": "pytest -q tests",
+      "timeout_minutes": 20
+    },
+    {
+      "key": "performance",
+      "label": "性能",
+      "command": "python benchmarks/benchmark_throughput.py --help",
+      "timeout_minutes": 20,
+      "runs": 3,
+      "budget_ms": null
+    },
+    {
+      "key": "stability",
+      "label": "稳定性",
+      "command": "pytest -q tests -p no:randomly",
+      "timeout_minutes": 20,
+      "runs": 3,
+      "max_failure_rate": 0
+    },
+    {
+      "key": "usability",
+      "label": "可用性",
+      "command": "python benchmarks/benchmark_latency.py --help",
+      "timeout_minutes": 20
+    }
+  ],
+  "effect": {
+    "command": "pytest -q tests",
+    "timeout_minutes": 20
+  },
+  "performance": {
+    "command": "python benchmarks/benchmark_throughput.py --help",
+    "timeout_minutes": 20,
+    "runs": 3,
+    "budget_ms": null
+  },
+  "stability": {
+    "command": "pytest -q tests -p no:randomly",
+    "timeout_minutes": 20,
+    "runs": 3,
+    "max_failure_rate": 0
+  },
+  "usability": {
+    "command": "python benchmarks/benchmark_latency.py --help",
+    "timeout_minutes": 20
+  }
+}
