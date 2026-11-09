@@ -67,6 +67,41 @@ def test_run_baseline_aggregates(tmp_path):
         assert key in data
 
 
+def test_build_subprocess_env_defaults(monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.delenv("CUDA_HOME", raising=False)
+    monkeypatch.delenv("VLLM_TARGET_DEVICE", raising=False)
+    env = module._build_subprocess_env()
+    assert env["CUDA_HOME"] == "/usr/local/cuda"
+    assert env["VLLM_TARGET_DEVICE"] == "cpu"
+    # Parent environment must not be mutated.
+    assert "CUDA_HOME" not in os.environ
+    assert "VLLM_TARGET_DEVICE" not in os.environ
+
+
+def test_build_subprocess_env_respects_existing(monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("CUDA_HOME", "/opt/cuda")
+    monkeypatch.setenv("VLLM_TARGET_DEVICE", "cuda")
+    env = module._build_subprocess_env()
+    assert env["CUDA_HOME"] == "/opt/cuda"
+    assert env["VLLM_TARGET_DEVICE"] == "cuda"
+
+
 def test_run_baseline_sets_env_for_subprocess(tmp_path, monkeypatch):
     import importlib.util
 

@@ -22,6 +22,28 @@ BENCHMARKS = {
     "prefix_cache_hit_rate": "benchmark_prefix_caching.py",
 }
 
+# Defaults applied to benchmark subprocesses so that lightweight CI does not
+# need a CUDA toolchain or a built vLLM extension. Explicitly configured
+# values always win.
+DEFAULT_ENV = {
+    "VLLM_TARGET_DEVICE": "cpu",
+    "CUDA_HOME": "/usr/local/cuda",
+}
+
+
+def _build_subprocess_env() -> dict:
+    """Return a copy of the environment with benchmark defaults applied.
+
+    The parent process environment is never mutated. This is the single
+    place where subprocess defaults are injected, so tests can verify the
+    behavior without relying on implicit ``sitecustomize`` hooks (which are
+    not loaded inside pip build isolation).
+    """
+    env = os.environ.copy()
+    for key, value in DEFAULT_ENV.items():
+        env.setdefault(key, value)
+    return env
+
 
 def _run_benchmark(
     name: str,
@@ -35,15 +57,10 @@ def _run_benchmark(
     try:
         cmd = [sys.executable, script_path, "--output-json", tmp_path]
         cmd.extend(extra_args)
-        env = os.environ.copy()
         # Avoid triggering CUDA detection / source builds in lightweight CI.
         # These defaults are applied only to the benchmark subprocesses; the
         # parent process environment is left untouched.
-        env.setdefault("VLLM_TARGET_DEVICE", "cpu")
-        # setup.py asserts CUDA_HOME is set when probing nvcc; provide a
-        # harmless placeholder so CPU-only environments do not fail during
-        # any incidental build/import path.
-        env.setdefault("CUDA_HOME", "/usr/local/cuda")
+        env = _build_subprocess_env()
         try:
             proc = subprocess.run(
                 cmd,

@@ -18,3 +18,16 @@ For full CLI reference see:
 - <https://docs.vllm.ai/en/latest/cli/bench/latency.html>
 - <https://docs.vllm.ai/en/latest/cli/bench/serve.html>
 - <https://docs.vllm.ai/en/latest/cli/bench/throughput.html>
+
+## Unified baseline snapshot
+
+`benchmarks/run_baseline.py` runs the throughput, latency and prefix caching
+benchmarks as subprocesses and aggregates their structured JSON output into a
+single file with stable top-level fields (`throughput`, `latency`,
+`prefix_cache_hit_rate`):
+
+```bash
+python benchmarks/run_baseline.py --output /tmp/baseline.json
+```
+
+Each benchmark script also supports `--output-json <path>` for standalone use.

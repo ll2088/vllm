@@ -21,3 +21,6 @@ if BENCHMARKS_DIR not in sys.path:
 
 # Prevent subprocesses from attempting CUDA detection during import.
 os.environ.setdefault("VLLM_TARGET_DEVICE", "cpu")
+# setup.py asserts CUDA_HOME is set when probing nvcc; provide a harmless
+# placeholder so CPU-only test environments do not fail during build/import.
+os.environ.setdefault("CUDA_HOME", "/usr/local/cuda")
