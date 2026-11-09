@@ -33,6 +33,10 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
         env = os.environ.copy()
         # Avoid triggering CUDA detection / source builds in lightweight CI.
         env.setdefault("VLLM_TARGET_DEVICE", "cpu")
+        # setup.py asserts CUDA_HOME is set when probing nvcc; provide a
+        # harmless placeholder so CPU-only environments do not fail during
+        # any incidental build/import path.
+        env.setdefault("CUDA_HOME", "/usr/local/cuda")
         # Ensure benchmarks/sitecustomize.py is imported by the child process
         # so that VLLM_TARGET_DEVICE is set before vllm is imported.
         existing_pythonpath = env.get("PYTHONPATH")

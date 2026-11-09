@@ -10,3 +10,6 @@ a CUDA toolchain, which keeps the baseline runner usable in CPU-only CI.
 import os
 
 os.environ.setdefault("VLLM_TARGET_DEVICE", "cpu")
+# setup.py's get_nvcc_cuda_version asserts CUDA_HOME is set; provide a
+# placeholder so CPU-only benchmark subprocesses never trip that assertion.
+os.environ.setdefault("CUDA_HOME", "/usr/local/cuda")

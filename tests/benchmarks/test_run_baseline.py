@@ -93,6 +93,7 @@ def test_run_baseline_sets_pythonpath_for_subprocess(tmp_path, monkeypatch):
     monkeypatch.setattr(module.subprocess, "run", _fake_run)
     module._run_benchmark("throughput", "benchmark_throughput.py", [])
     assert captured["env"]["VLLM_TARGET_DEVICE"] == "cpu"
+    assert captured["env"]["CUDA_HOME"]
     assert module.BENCHMARKS_DIR in captured["env"]["PYTHONPATH"].split(
         os.pathsep
     )
@@ -183,6 +184,19 @@ def test_run_baseline_aggregates_fields(tmp_path, monkeypatch):
     assert rc == 0
     data = json.loads(out.read_text())
     assert data == values
+
+
+def test_sitecustomize_sets_cpu_env():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "benchmarks_sitecustomize",
+        os.path.join(BENCHMARKS_DIR, "sitecustomize.py"),
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert os.environ.get("VLLM_TARGET_DEVICE") == "cpu"
+    assert os.environ.get("CUDA_HOME")
 
 
 def test_run_baseline_no_partial_file_on_failure(tmp_path, monkeypatch):
