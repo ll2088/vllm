@@ -14,10 +14,13 @@ BENCHMARKS_DIR = os.path.join(
 
 
 def _run(script: str, *args: str) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env.setdefault("VLLM_TARGET_DEVICE", "cpu")
     return subprocess.run(
         [sys.executable, os.path.join(BENCHMARKS_DIR, script), *args],
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
@@ -77,6 +80,25 @@ def test_run_baseline_failure_returns_nonzero(tmp_path, monkeypatch):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(module, "run_baseline", _fail)
+    out = tmp_path / "baseline.json"
+    rc = module.main(["--output", str(out)])
+    assert rc != 0
+    assert not out.exists()
+
+
+def test_run_baseline_subprocess_failure(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def _fail(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(module, "_run_benchmark", _fail)
     out = tmp_path / "baseline.json"
     rc = module.main(["--output", str(out)])
     assert rc != 0

@@ -30,7 +30,10 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
     try:
         cmd = [sys.executable, script_path, "--output-json", tmp_path]
         cmd.extend(extra_args)
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        env = os.environ.copy()
+        # Avoid triggering CUDA detection / source builds in lightweight CI.
+        env.setdefault("VLLM_TARGET_DEVICE", "cpu")
+        proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Benchmark '{name}' failed with exit code "
