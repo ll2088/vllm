@@ -185,17 +185,32 @@ def test_run_baseline_aggregates_fields(tmp_path, monkeypatch):
     assert data == values
 
 
-def test_sitecustomize_sets_build_env_defaults():
+def test_run_baseline_does_not_mutate_parent_env(monkeypatch):
     import importlib.util
 
-    repo_root = os.path.dirname(BENCHMARKS_DIR)
     spec = importlib.util.spec_from_file_location(
-        "sitecustomize", os.path.join(repo_root, "sitecustomize.py")
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    assert os.environ.get("CUDA_HOME")
-    assert os.environ.get("VLLM_TARGET_DEVICE") == "cpu"
+
+    monkeypatch.delenv("CUDA_HOME", raising=False)
+    monkeypatch.delenv("VLLM_TARGET_DEVICE", raising=False)
+
+    class _FakeCompleted:
+        returncode = 0
+        stderr = ""
+
+    def _fake_run(cmd, capture_output=True, text=True, env=None, timeout=None):
+        out_idx = cmd.index("--output-json") + 1
+        with open(cmd[out_idx], "w") as f:
+            json.dump({"throughput": 1.0}, f)
+        return _FakeCompleted()
+
+    monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    module._run_benchmark("throughput", "benchmark_throughput.py", [])
+    assert "CUDA_HOME" not in os.environ
+    assert "VLLM_TARGET_DEVICE" not in os.environ
 
 
 def test_run_baseline_no_partial_file_on_failure(tmp_path, monkeypatch):
