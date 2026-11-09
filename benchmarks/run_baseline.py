@@ -42,9 +42,12 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
             env["PYTHONPATH"] = BENCHMARKS_DIR
         proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if proc.returncode != 0:
+            stderr = (proc.stderr or "").strip()
+            stdout = (proc.stdout or "").strip()
+            detail = stderr or stdout or "<no output>"
             raise RuntimeError(
                 f"Benchmark '{name}' failed with exit code "
-                f"{proc.returncode}: {proc.stderr.strip()}"
+                f"{proc.returncode}: {detail}"
             )
         try:
             with open(tmp_path) as f:

@@ -117,6 +117,29 @@ def test_run_baseline_failure_returns_nonzero(tmp_path, monkeypatch):
     assert not out.exists()
 
 
+def test_run_baseline_reports_subprocess_stderr(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class _FakeCompleted:
+        returncode = 2
+        stderr = "boom from child"
+        stdout = ""
+
+    def _fake_run(cmd, capture_output=True, text=True, env=None):
+        return _FakeCompleted()
+
+    monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    with pytest.raises(RuntimeError) as excinfo:
+        module._run_benchmark("throughput", "benchmark_throughput.py", [])
+    assert "boom from child" in str(excinfo.value)
+
+
 def test_run_baseline_subprocess_failure(tmp_path, monkeypatch):
     import importlib.util
 
