@@ -23,7 +23,12 @@ BENCHMARKS = {
 }
 
 
-def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
+def _run_benchmark(
+    name: str,
+    script: str,
+    extra_args: list[str],
+    timeout: float | None = None,
+) -> dict:
     script_path = os.path.join(BENCHMARKS_DIR, script)
     fd, tmp_path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
@@ -32,19 +37,25 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
         cmd.extend(extra_args)
         env = os.environ.copy()
         # Avoid triggering CUDA detection / source builds in lightweight CI.
+        # These must be set explicitly here: pip's build isolation does not
+        # import repository-level sitecustomize.py, so we cannot rely on it.
         env.setdefault("VLLM_TARGET_DEVICE", "cpu")
         # setup.py asserts CUDA_HOME is set when probing nvcc; provide a
         # harmless placeholder so CPU-only environments do not fail during
         # any incidental build/import path.
         env.setdefault("CUDA_HOME", "/usr/local/cuda")
-        # Ensure benchmarks/sitecustomize.py is imported by the child process
-        # so that VLLM_TARGET_DEVICE is set before vllm is imported.
-        existing_pythonpath = env.get("PYTHONPATH")
-        if existing_pythonpath:
-            env["PYTHONPATH"] = BENCHMARKS_DIR + os.pathsep + existing_pythonpath
-        else:
-            env["PYTHONPATH"] = BENCHMARKS_DIR
-        proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"Benchmark '{name}' timed out after {timeout}s"
+            ) from exc
         if proc.returncode != 0:
             stderr = (proc.stderr or "").strip()
             stdout = (proc.stdout or "").strip()
@@ -68,11 +79,14 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
             pass
 
 
-def run_baseline(extra_args: list[str] | None = None) -> dict:
+def run_baseline(
+    extra_args: list[str] | None = None,
+    timeout: float | None = None,
+) -> dict:
     extra_args = extra_args or []
     results: dict = {}
     for field, script in BENCHMARKS.items():
-        data = _run_benchmark(field, script, extra_args)
+        data = _run_benchmark(field, script, extra_args, timeout=timeout)
         results[field] = data.get(field)
     return results
 
@@ -104,6 +118,18 @@ def create_argument_parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to write the aggregated JSON results to.",
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="Per-benchmark timeout in seconds (default: no timeout).",
+    )
+    parser.add_argument(
+        "--extra-args",
+        nargs=argparse.REMAINDER,
+        default=[],
+        help="Extra arguments forwarded to every benchmark script.",
+    )
     return parser
 
 
@@ -111,7 +137,7 @@ def main(argv=None) -> int:
     parser = create_argument_parser()
     args = parser.parse_args(argv)
     try:
-        results = run_baseline()
+        results = run_baseline(extra_args=args.extra_args, timeout=args.timeout)
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
