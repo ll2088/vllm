@@ -215,6 +215,10 @@ def main(args):
         sampling_params=sampling_params,
     )
 
+    if args.output_json is not None:
+        with open(args.output_json, "w") as f:
+            json.dump({"prefix_cache_hit_rate": None}, f)
+
 
 def create_argument_parser():
     parser = FlexibleArgumentParser(
@@ -263,6 +267,12 @@ def create_argument_parser():
             "Do not detokenize responses (i.e. do not include "
             "detokenization time in the latency measurement)"
         ),
+    )
+    parser.add_argument(
+        "--output-json",
+        type=str,
+        default=None,
+        help="Path to write structured JSON results to.",
     )
 
     parser = EngineArgs.add_cli_args(parser)
