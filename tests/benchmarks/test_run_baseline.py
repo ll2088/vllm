@@ -98,6 +98,37 @@ def test_run_baseline_sets_env_for_subprocess(tmp_path, monkeypatch):
     assert captured["timeout"] == 5
 
 
+def test_run_baseline_subprocess_env_has_defaults(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.delenv("CUDA_HOME", raising=False)
+    monkeypatch.delenv("VLLM_TARGET_DEVICE", raising=False)
+
+    captured = {}
+
+    class _FakeCompleted:
+        returncode = 0
+        stderr = ""
+
+    def _fake_run(cmd, capture_output=True, text=True, env=None, timeout=None):
+        captured["env"] = env
+        out_idx = cmd.index("--output-json") + 1
+        with open(cmd[out_idx], "w") as f:
+            json.dump({"throughput": 1.0}, f)
+        return _FakeCompleted()
+
+    monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    module._run_benchmark("throughput", "benchmark_throughput.py", [])
+    assert captured["env"]["CUDA_HOME"] == "/usr/local/cuda"
+    assert captured["env"]["VLLM_TARGET_DEVICE"] == "cpu"
+
+
 def test_run_baseline_failure_returns_nonzero(tmp_path, monkeypatch):
     import importlib.util
 
