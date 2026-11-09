@@ -33,6 +33,13 @@ def _run_benchmark(name: str, script: str, extra_args: list[str]) -> dict:
         env = os.environ.copy()
         # Avoid triggering CUDA detection / source builds in lightweight CI.
         env.setdefault("VLLM_TARGET_DEVICE", "cpu")
+        # Ensure benchmarks/sitecustomize.py is imported by the child process
+        # so that VLLM_TARGET_DEVICE is set before vllm is imported.
+        existing_pythonpath = env.get("PYTHONPATH")
+        if existing_pythonpath:
+            env["PYTHONPATH"] = BENCHMARKS_DIR + os.pathsep + existing_pythonpath
+        else:
+            env["PYTHONPATH"] = BENCHMARKS_DIR
         proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if proc.returncode != 0:
             raise RuntimeError(

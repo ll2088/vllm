@@ -67,6 +67,37 @@ def test_run_baseline_aggregates(tmp_path):
         assert key in data
 
 
+def test_run_baseline_sets_pythonpath_for_subprocess(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    captured = {}
+
+    class _FakeCompleted:
+        returncode = 0
+        stderr = ""
+
+    def _fake_run(cmd, capture_output=True, text=True, env=None):
+        captured["env"] = env
+        # Write valid JSON to the --output-json path.
+        out_idx = cmd.index("--output-json") + 1
+        with open(cmd[out_idx], "w") as f:
+            json.dump({"throughput": 1.0}, f)
+        return _FakeCompleted()
+
+    monkeypatch.setattr(module.subprocess, "run", _fake_run)
+    module._run_benchmark("throughput", "benchmark_throughput.py", [])
+    assert captured["env"]["VLLM_TARGET_DEVICE"] == "cpu"
+    assert module.BENCHMARKS_DIR in captured["env"]["PYTHONPATH"].split(
+        os.pathsep
+    )
+
+
 def test_run_baseline_failure_returns_nonzero(tmp_path, monkeypatch):
     import importlib.util
 
