@@ -70,6 +70,22 @@ def run_baseline(extra_args: list[str] | None = None) -> dict:
     return results
 
 
+def _write_results(path: str, results: dict) -> None:
+    """Atomically write aggregated results so partial files are never left."""
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    fd, tmp_path = tempfile.mkstemp(suffix=".json", dir=directory)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(results, f, indent=2)
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run all vLLM baseline benchmarks and aggregate results "
@@ -92,8 +108,7 @@ def main(argv=None) -> int:
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    with open(args.output, "w") as f:
-        json.dump(results, f, indent=2)
+    _write_results(args.output, results)
     return 0
 
 

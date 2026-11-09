@@ -134,3 +134,53 @@ def test_run_baseline_subprocess_failure(tmp_path, monkeypatch):
     rc = module.main(["--output", str(out)])
     assert rc != 0
     assert not out.exists()
+
+
+def test_run_baseline_aggregates_fields(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    values = {
+        "throughput": 12.5,
+        "latency": 0.25,
+        "prefix_cache_hit_rate": 0.75,
+    }
+
+    def _fake(name, script, extra_args):
+        return {name: values[name]}
+
+    monkeypatch.setattr(module, "_run_benchmark", _fake)
+    out = tmp_path / "baseline.json"
+    rc = module.main(["--output", str(out)])
+    assert rc == 0
+    data = json.loads(out.read_text())
+    assert data == values
+
+
+def test_run_baseline_no_partial_file_on_failure(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "run_baseline", os.path.join(BENCHMARKS_DIR, "run_baseline.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    calls = {"n": 0}
+
+    def _partial(name, script, extra_args):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("second failed")
+        return {name: 1.0}
+
+    monkeypatch.setattr(module, "_run_benchmark", _partial)
+    out = tmp_path / "baseline.json"
+    rc = module.main(["--output", str(out)])
+    assert rc != 0
+    assert not out.exists()
